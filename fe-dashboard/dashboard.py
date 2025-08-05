@@ -10,13 +10,25 @@ def init_connection():
         account=st.secrets["snowflake"]["account"],
         warehouse=st.secrets["snowflake"]["warehouse"],
         database=st.secrets["snowflake"]["database"],
-        schema=st.secrets["snowflake"]["schema"]
+        schema=st.secrets["snowflake"]["schema"],
+        client_session_keep_alive=True
     )
 # クエリ実行関数
 @st.cache_data(ttl=600)
 def run_query(query):
-    with init_connection() as conn:
-        return pd.read_sql(query, conn) 
+    try:
+        conn = init_connection()
+        # 連携テスト
+        conn.cursor().execute("SELECT 1")
+        return pd.read_sql(query, conn)
+    except:
+        # 連携失敗の場合キャッシュクリア後はre-try
+        st.cache_resource.clear()
+        conn = init_connection()
+        return pd.read_sql(query, conn)
+    finally:
+        if 'conn' in locals():
+            conn.close()
     
 st.title("基本情報技術者 学習ダッシュボード")
 
